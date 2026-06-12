@@ -1,0 +1,8 @@
+{
+  "name": "行程規劃系統",
+  "description": "一個專為旅行者與出國行程所打造的自由行行程規劃與每日活動管理系統。",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

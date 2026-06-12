@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validator for Trip
+    function isValidTrip(data) {
+      return data.userId is string 
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.destination is string && data.destination.size() > 0 && data.destination.size() <= 200
+        && data.startDate is string && data.startDate.size() == 10
+        && data.endDate is string && data.endDate.size() == 10
+        && data.status is string && (data.status == 'planning' || data.status == 'ongoing' || data.status == 'completed');
+    }
+
+    // Validator for Activity
+    function isValidActivity(data) {
+      return data.userId is string
+        && data.tripId is string
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.date is string && data.date.size() == 10
+        && data.time is string && data.time.size() >= 4 && data.time.size() <= 8
+        && data.location is string && data.location.size() <= 300
+        && data.status is string && (data.status == 'pending' || data.status == 'completed');
+    }
+
+    // Validator for UserProfile
+    function isValidUserProfile(data) {
+      return data.userId is string
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 320;
+    }
+
+    // Collection Routing
+    match /trips/{tripId} {
+      allow get: if isSignedIn() && isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidTrip(incoming()) && isOwner(incoming().userId);
+      allow update: if isSignedIn() && isValidTrip(incoming()) && isOwner(existing().userId) && isOwner(incoming().userId);
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+
+    match /activities/{activityId} {
+      allow get: if isSignedIn() && isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidActivity(incoming()) && isOwner(incoming().userId);
+      allow update: if isSignedIn() && isValidActivity(incoming()) && isOwner(existing().userId) && isOwner(incoming().userId);
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+
+    match /profiles/{userId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isSignedIn() && isOwner(userId) && isValidUserProfile(incoming()) && incoming().userId == existing().userId;
+      allow delete: if false;
+    }
+  }
+}
